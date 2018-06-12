@@ -848,3 +848,102 @@ TEST_CASE_METHOD(
   // Clean up
   tiledb_dimension_free(&d1);
 }
+
+TEST_CASE_METHOD(
+    ArraySchemaFx,
+    "C API: Test array schema json serialization",
+    "[capi], [array-schema]") {
+  // Create array schema
+  tiledb_array_schema_t* array_schema;
+  int rc = tiledb_array_schema_alloc(ctx_, TILEDB_DENSE, &array_schema);
+  REQUIRE(rc == TILEDB_OK);
+
+  // Create dimensions
+  tiledb_dimension_t* d1;
+  rc = tiledb_dimension_alloc(
+      ctx_, "", TILEDB_INT64, &DIM_DOMAIN[0], &TILE_EXTENTS[0], &d1);
+  REQUIRE(rc == TILEDB_OK);
+
+  // Set domain
+  tiledb_domain_t* domain;
+  rc = tiledb_domain_alloc(ctx_, &domain);
+  REQUIRE(rc == TILEDB_OK);
+  rc = tiledb_domain_add_dimension(ctx_, domain, d1);
+  REQUIRE(rc == TILEDB_OK);
+  rc = tiledb_array_schema_set_domain(ctx_, array_schema, domain);
+  REQUIRE(rc == TILEDB_OK);
+
+  // Set attribute
+  tiledb_attribute_t* attr1;
+  rc = tiledb_attribute_alloc(ctx_, "", ATTR_TYPE, &attr1);
+  REQUIRE(rc == TILEDB_OK);
+  tiledb_attribute_t* attr2;
+  rc = tiledb_attribute_alloc(ctx_, "a1", ATTR_TYPE, &attr2);
+  REQUIRE(rc == TILEDB_OK);
+
+  rc = tiledb_array_schema_add_attribute(ctx_, array_schema, attr1);
+  REQUIRE(rc == TILEDB_OK);
+  rc = tiledb_array_schema_add_attribute(ctx_, array_schema, attr2);
+  REQUIRE(rc == TILEDB_OK);
+
+  char* json_string;
+  rc = tiledb_array_schema_to_json(ctx_, array_schema, &json_string);
+  REQUIRE(rc == TILEDB_OK);
+
+  CHECK_THAT(
+      json_string,
+      Catch::Equals("{\"array_type\":\"dense\",\"attributes\":[{\"cell_val_"
+                    "num\":1,\"compressor\":"
+                    "\"NO_COMPRESSION\",\"compressor_level\":-1,\"name\":\"__"
+                    "attr\",\"type\":\"INT32\"},"
+                    "{\"cell_val_num\":1,\"compressor\":\"NO_COMPRESSION\","
+                    "\"compressor_level\":-1,\"name\":"
+                    "\"a1\",\"type\":\"INT32\"}],\"capacity\":10000,\"cell_"
+                    "order\":\"row-major\","
+                    "\"coords_compression\":\"ZSTD\",\"coords_"
+                    "compression_level\":-1,\"domain\":"
+                    "{\"cell_order\":\"row-major\",\"dimensions\":[{\"domain\":"
+                    "[0,99],\"name\":\"__dim_0\","
+                    "\"null_tile_extent\":false,\"tile_extent\":10,\"tile_"
+                    "extent_type\":\"INT64\",\"type\":"
+                    "\"INT64\"}],\"tile_order\":\"row-major\",\"type\":"
+                    "\"INT64\"},\"offset_compression\":"
+                    "\"ZSTD\",\"offset_compression_level\":-1,\"tile_"
+                    "order\":\"row-major\",\"uri\":\"\","
+                    "\"version\":[1,3,0]}"));
+
+  tiledb_array_schema_free(&array_schema);
+
+  rc = tiledb_array_schema_from_json(ctx_, &array_schema, json_string);
+  REQUIRE(rc == TILEDB_OK);
+
+  tiledb_attribute_t* attr2_check;
+  rc = tiledb_array_schema_get_attribute_from_name(
+      ctx_, array_schema, "a1", &attr2_check);
+  REQUIRE(rc == TILEDB_OK);
+  CHECK(attr2_check != nullptr);
+
+  std::string malformedJson =
+      "{\"array_type\":\"dense\",\"attributes\":[{\"cell_val_"
+      "num\":1,\"compressor\":"
+      "\"NO_COMPRESSION\",\"compressor_level\":-1,\"name\":\"__"
+      "attr\",\"type\":\"INT32\"},"
+      "{\"cell_val_num\":1,\"compressor\":\"NO_COMPRESSION\","
+      "\"compressor_level\":-1,\"name\":"
+      "\"a1\",\"type\":\"INT32\"}],\"capacity\":10000,\"cell_"
+      "order\":\"row-major\","
+      "\"coords_compression\":\"ZSTD\",\"coords_"
+      "compression_level\":-1,\"domain\":"
+      "{\"cell_order\":\"row-major\",\"dimensions\":[{\"domain\":"
+      "[0,99],\"name\":\"__dim_0\","
+      "\"null_tile_extent\":false,\"tile_extent\":10,\"tile_"
+      "extent_type\":\"INT64\",\"type\":"
+      "\"INT64\"}],\"tile_order\":\"row-major\",\"type\":"
+      "\"INT64\"},\"offset_compression\":"
+      "\"ZSTD\",\"offset_compression_level\":-1,\"tile_"
+      "order\":\"row-major\",\"version\":[1,3,0]}";
+
+  rc =
+      tiledb_array_schema_from_json(ctx_, &array_schema, malformedJson.c_str());
+  REQUIRE(rc == TILEDB_ERR);
+}
