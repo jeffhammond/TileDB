@@ -47,6 +47,11 @@ TEST_CASE("C++ API: Schema", "[cppapi]") {
   auto fd2 = Dimension::create<double>(ctx, "d2", {{-100.0, 100.0}}, 10.0);
   sparse_domain.add_dimensions(fd1, fd2);
 
+  Domain sparse_domain_json(ctx);
+  auto fdj1 = Dimension::create<double>(ctx, "d1", {{-100.0, 100.0}}, 10.0);
+  auto fdj2 = Dimension::create<double>(ctx, "d2", {{-100.0, 100.0}}, 10.0);
+  sparse_domain_json.add_dimensions(fdj1, fdj2);
+
   auto a1 = Attribute::create<int>(ctx, "a1");
   auto a2 = Attribute::create<std::string>(ctx, "a2");
   auto a3 = Attribute::create<std::array<double, 2>>(ctx, "a3");
@@ -171,5 +176,76 @@ TEST_CASE("C++ API: Schema", "[cppapi]") {
 
     auto dom_get = schema.domain();
     CHECK(dom_get.dimensions()[0].tile_extent<int>() == 11);
+  }
+
+  SECTION("JSON Serialization") {
+    ArraySchema schema(ctx, TILEDB_SPARSE);
+    schema.set_domain(sparse_domain_json);
+    schema.add_attribute(a1);
+    schema.add_attribute(a2);
+    schema.add_attribute(a3);
+    schema.add_attribute(a4);
+    schema.set_cell_order(TILEDB_ROW_MAJOR);
+    schema.set_tile_order(TILEDB_COL_MAJOR);
+    schema.set_offsets_compressor({TILEDB_DOUBLE_DELTA, -1});
+    schema.set_coords_compressor({TILEDB_ZSTD, -1});
+
+    std::string json = schema.to_json();
+    CHECK_THAT(
+        json,
+        Catch::Equals(
+            "{\"array_type\":\"sparse\",\"attributes\":[{\"cell_val_num\":1,"
+            "\"compressor\":"
+            "\"BLOSC_LZ\",\"compressor_level\":-1,\"name\":\"a1\",\"type\":"
+            "\"INT32\"},{\"cell_val_num\":"
+            "4294967295,\"compressor\":\"NO_COMPRESSION\",\"compressor_level\":"
+            "-1,\"name\":\"a2\","
+            "\"type\":\"CHAR\"},{\"cell_val_num\":16,\"compressor\":\"NO_"
+            "COMPRESSION\","
+            "\"compressor_level\":-1,\"name\":\"a3\",\"type\":\"CHAR\"},{"
+            "\"cell_val_num\":4294967295,"
+            "\"compressor\":\"NO_COMPRESSION\",\"compressor_level\":-1,"
+            "\"name\":\"a4\",\"type\":"
+            "\"UINT32\"}],\"capacity\":10000,\"cell_order\":\"row-major\","
+            "\"coords_compression\":"
+            "\"ZSTD\",\"coords_compression_level\":-1,\"domain\":{\"cell_"
+            "order\":\"row-major\","
+            "\"dimensions\":[{\"domain\":[-100.0,100.0],\"name\":\"d1\",\"null_"
+            "tile_extent\":false,"
+            "\"tile_extent\":10.0,\"tile_extent_type\":\"FLOAT64\",\"type\":"
+            "\"FLOAT64\"},{\"domain\":"
+            "[-100.0,100.0],\"name\":\"d2\",\"null_tile_extent\":false,\"tile_"
+            "extent\":10.0,"
+            "\"tile_extent_type\":\"FLOAT64\",\"type\":\"FLOAT64\"}],\"tile_"
+            "order\":\"row-major\","
+            "\"type\":\"FLOAT64\"},\"offset_compression\":\"DOUBLE_DELTA\","
+            "\"offset_compression_level\":-1,\"tile_order\":\"col-major\","
+            "\"uri\":\"\",\"version\":[1,"
+            "3,0]}"));
+
+    ArraySchema* schemaParsed = ArraySchema::from_json(ctx, json);
+
+    REQUIRE(schemaParsed != nullptr);
+    REQUIRE(schemaParsed->attribute_num() == 4);
+    CHECK(schemaParsed->attribute(0).name() == "a1");
+    CHECK(schemaParsed->attribute(1).name() == "a2");
+    CHECK(schemaParsed->attribute(2).name() == "a3");
+    CHECK(
+        schemaParsed->attribute("a1").compressor().compressor() ==
+        TILEDB_BLOSC_LZ);
+    CHECK(schemaParsed->attribute("a2").cell_val_num() == TILEDB_VAR_NUM);
+    CHECK(schemaParsed->attribute("a3").cell_val_num() == 16);
+    CHECK(schemaParsed->attribute("a4").cell_val_num() == TILEDB_VAR_NUM);
+    CHECK(schemaParsed->attribute("a4").type() == TILEDB_UINT32);
+
+    auto dims = schemaParsed->domain().dimensions();
+    REQUIRE(dims.size() == 2);
+    CHECK(dims[0].name() == "d1");
+    CHECK(dims[1].name() == "d2");
+    CHECK_THROWS(dims[0].domain<float>());
+    CHECK(dims[0].domain<double>().first == -100.0);
+    CHECK(dims[0].domain<double>().second == 100.0);
+    CHECK_THROWS(dims[0].tile_extent<unsigned>());
+    CHECK(dims[0].tile_extent<double>() == 10.0);
   }
 }
