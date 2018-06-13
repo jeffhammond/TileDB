@@ -61,6 +61,18 @@ inline const std::string& array_type_str(ArrayType array_type) {
   }
 }
 
+/** Returns the array type given a string representation. */
+inline ArrayType array_type_enum(const std::string& array_type_str) {
+  if (array_type_str == constants::dense_str)
+    return ArrayType::DENSE;
+  else if (array_type_str == constants::sparse_str)
+    return ArrayType::SPARSE;
+  else {
+    assert(0);
+    return ArrayType::DENSE;
+  }
+}
+
 }  // namespace sm
 }  // namespace tiledb
 
