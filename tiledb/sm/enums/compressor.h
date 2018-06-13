@@ -83,6 +83,39 @@ inline const std::string& compressor_str(Compressor type) {
   }
 }
 
+/** Returns the compressor based on the string representation. */
+inline Compressor compressor_enum(const std::string& compressor_type_str) {
+  if (compressor_type_str == constants::no_compression_str)
+    return Compressor::NO_COMPRESSION;
+  else if (compressor_type_str == constants::gzip_str)
+    return Compressor::GZIP;
+  else if (compressor_type_str == constants::zstd_str)
+    return Compressor::ZSTD;
+  else if (compressor_type_str == constants::lz4_str)
+    return Compressor::LZ4;
+  else if (compressor_type_str == constants::blosc_lz_str)
+    return Compressor::BLOSC_LZ;
+  else if (compressor_type_str == constants::blosc_lz4_str)
+    return Compressor::BLOSC_LZ4;
+  else if (compressor_type_str == constants::blosc_lz4hc_str)
+    return Compressor::BLOSC_LZ4HC;
+  else if (compressor_type_str == constants::blosc_snappy_str)
+    return Compressor::BLOSC_SNAPPY;
+  else if (compressor_type_str == constants::blosc_zlib_str)
+    return Compressor::BLOSC_ZLIB;
+  else if (compressor_type_str == constants::blosc_zstd_str)
+    return Compressor::BLOSC_ZSTD;
+  else if (compressor_type_str == constants::rle_str)
+    return Compressor::RLE;
+  else if (compressor_type_str == constants::bzip2_str)
+    return Compressor::BZIP2;
+  else if (compressor_type_str == constants::double_delta_str)
+    return Compressor::DOUBLE_DELTA;
+  else {
+    assert(0);
+    return Compressor::NO_COMPRESSION;
+  }
+}
 }  // namespace sm
 }  // namespace tiledb
 

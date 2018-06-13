@@ -138,6 +138,50 @@ inline const std::string& datatype_str(Datatype type) {
   }
 }
 
+/** Returns the datatype given a string representation. */
+inline Datatype datatype_enum(const std::string& datatype_str) {
+  if (datatype_str == constants::int32_str)
+    return Datatype::INT32;
+  else if (datatype_str == constants::int64_str)
+    return Datatype::INT64;
+  else if (datatype_str == constants::float32_str)
+    return Datatype::FLOAT32;
+  else if (datatype_str == constants::float64_str)
+    return Datatype::FLOAT64;
+  else if (datatype_str == constants::char_str)
+    return Datatype::CHAR;
+  else if (datatype_str == constants::int8_str)
+    return Datatype::INT8;
+  else if (datatype_str == constants::uint8_str)
+    return Datatype::UINT8;
+  else if (datatype_str == constants::int16_str)
+    return Datatype::INT16;
+  else if (datatype_str == constants::uint16_str)
+    return Datatype::UINT16;
+  else if (datatype_str == constants::uint32_str)
+    return Datatype::UINT32;
+  else if (datatype_str == constants::uint64_str)
+    return Datatype::UINT64;
+  else if (datatype_str == constants::string_ascii_str)
+    return Datatype::STRING_ASCII;
+  else if (datatype_str == constants::string_utf8_str)
+    return Datatype::STRING_UTF8;
+  else if (datatype_str == constants::string_utf16_str)
+    return Datatype::STRING_UTF16;
+  else if (datatype_str == constants::string_utf32_str)
+    return Datatype::STRING_UTF32;
+  else if (datatype_str == constants::string_ucs2_str)
+    return Datatype::STRING_UCS2;
+  else if (datatype_str == constants::string_ucs4_str)
+    return Datatype::STRING_UCS4;
+  else if (datatype_str == constants::any_str)
+    return Datatype::ANY;
+  else {
+    assert(0);
+    return Datatype::INT32;
+  }
+}
+
 /** Returns true if the input datatype is a string type. */
 inline bool datatype_is_string(Datatype type) {
   return (

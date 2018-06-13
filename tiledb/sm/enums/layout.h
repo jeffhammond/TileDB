@@ -65,6 +65,22 @@ inline const std::string& layout_str(Layout layout) {
   }
 }
 
+/** Returns the layout enum given a string representation. */
+inline Layout layout_enum(const std::string& layout_str) {
+  if (layout_str == constants::col_major_str)
+    return Layout::COL_MAJOR;
+  else if (layout_str == constants::row_major_str)
+    return Layout::ROW_MAJOR;
+  else if (layout_str == constants::global_order_str)
+    return Layout::GLOBAL_ORDER;
+  else if (layout_str == constants::unordered_str)
+    return Layout::UNORDERED;
+  else {
+    assert(0);
+    return Layout::COL_MAJOR;
+  }
+}
+
 }  // namespace sm
 }  // namespace tiledb
 
