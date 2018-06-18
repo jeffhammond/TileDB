@@ -947,3 +947,62 @@ TEST_CASE_METHOD(
       tiledb_array_schema_from_json(ctx_, &array_schema, malformedJson.c_str());
   REQUIRE(rc == TILEDB_ERR);
 }
+TEST_CASE_METHOD(
+    ArraySchemaFx,
+    "C API: Test array schema rest api",
+    "[capi], [array-schema]") {
+  tiledb_config_t* config = nullptr;
+  tiledb_error_t* error = nullptr;
+  REQUIRE(tiledb_ctx_get_config(ctx_, &config) == TILEDB_OK);
+
+  REQUIRE(
+      tiledb_config_set(
+          config, "sm.rest_server_address", "http://localhost:8181", &error) ==
+      TILEDB_OK);
+
+  tiledb_ctx_free(&ctx_);
+  REQUIRE(tiledb_ctx_alloc(config, &ctx_) == TILEDB_OK);
+  REQUIRE(error == nullptr);
+
+  // Create array schema to post
+  tiledb_array_schema_t* array_schema;
+  int rc = tiledb_array_schema_alloc(ctx_, TILEDB_DENSE, &array_schema);
+  REQUIRE(rc == TILEDB_OK);
+
+  // Create dimensions
+  tiledb_dimension_t* d1;
+  rc = tiledb_dimension_alloc(
+      ctx_, "", TILEDB_INT64, &DIM_DOMAIN[0], &TILE_EXTENTS[0], &d1);
+  REQUIRE(rc == TILEDB_OK);
+
+  // Set domain
+  tiledb_domain_t* domain;
+  rc = tiledb_domain_alloc(ctx_, &domain);
+  REQUIRE(rc == TILEDB_OK);
+  rc = tiledb_domain_add_dimension(ctx_, domain, d1);
+  REQUIRE(rc == TILEDB_OK);
+  rc = tiledb_array_schema_set_domain(ctx_, array_schema, domain);
+  REQUIRE(rc == TILEDB_OK);
+
+  // Set attribute
+  tiledb_attribute_t* attr1;
+  rc = tiledb_attribute_alloc(ctx_, "", ATTR_TYPE, &attr1);
+  REQUIRE(rc == TILEDB_OK);
+  tiledb_attribute_t* attr2;
+  rc = tiledb_attribute_alloc(ctx_, "a1", ATTR_TYPE, &attr2);
+  REQUIRE(rc == TILEDB_OK);
+
+  rc = tiledb_array_schema_add_attribute(ctx_, array_schema, attr1);
+  REQUIRE(rc == TILEDB_OK);
+  rc = tiledb_array_schema_add_attribute(ctx_, array_schema, attr2);
+  REQUIRE(rc == TILEDB_OK);
+
+  std::string uri = "file:///tmp/company1/project1/array_sparse_example";
+  rc = tiledb_array_create(ctx_, uri.c_str(), array_schema);
+  REQUIRE(rc == TILEDB_OK);
+
+  // Load array schema from the rest server
+  tiledb_array_schema_t* array_schema_returned;
+  rc = tiledb_array_schema_load(ctx_, uri.c_str(), &array_schema_returned);
+  REQUIRE(rc == TILEDB_OK);
+}
