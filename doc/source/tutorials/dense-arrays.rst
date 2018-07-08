@@ -6,18 +6,10 @@ Dense Arrays
 In this tutorial we will learn how to create, read, and write a simple dense
 array in TileDB.
 
-.. toggle-header::
-    :header: **Example Code Listing**
+**Link to full programs**
 
-    .. content-tabs::
-
-       .. tab-container:: cpp
-          :title: C++
-
-          .. literalinclude:: ../{source_examples_path}/cpp_api/quickstart_dense.cc
-             :language: c++
-             :linenos:
-
+* `C++ <{tiledb_src_root_url}/examples/cpp_api/quickstart_dense.cc>`__
+* `Python <{tiledb_py_src_root_url}/examples/quickstart_dense.py>`__
 
 Basic concepts and definitions
 ------------------------------
@@ -87,7 +79,9 @@ Basic concepts and definitions
 Creating a dense array
 ----------------------
 
-The following snippet creates an empty array schema for a dense array:
+The following snippet configures the array schema for this tutorial. An array
+schema configures parameters such as the number and type of dimensions,
+attributes, etc.
 
 .. content-tabs::
 
@@ -96,23 +90,40 @@ The following snippet creates an empty array schema for a dense array:
 
       .. code-block:: c++
 
-        Context ctx;
-        ArraySchema schema(ctx, TILEDB_DENSE);
+         Context ctx;
+         ArraySchema schema(ctx, TILEDB_DENSE);
 
-Next, we define a 2D domain where the coordinates can be integer values
+         // The array will be 4x4 with dimensions "rows" and "cols", with domain [1,4].
+         Domain domain(ctx);
+         domain.add_dimension(Dimension::create<int>(ctx, "rows", {{1, 4}}, 4))
+           .add_dimension(Dimension::create<int>(ctx, "cols", {{1, 4}}, 4));
+         
+         // The array will be dense.
+         ArraySchema schema(ctx, TILEDB_DENSE);
+         schema.set_domain(domain).set_order({{TILEDB_ROW_MAJOR, TILEDB_ROW_MAJOR}});
+         
+         // Add a single attribute "a" so each (i,j) cell can store an integer.
+         schema.add_attribute(Attribute::create<int>(ctx, "a"));
+
+   .. tab-container:: python
+      :title: Python
+
+      .. code-block:: python
+
+         ctx = tiledb.Ctx()
+         
+         # The array will be 4x4 with dimensions "rows" and "cols", with domain [1,4].
+         dom = tiledb.Domain(ctx,
+                             tiledb.Dim(ctx, name="rows", domain=(1, 4), tile=4, dtype=np.int32),
+                             tiledb.Dim(ctx, name="cols", domain=(1, 4), tile=4, dtype=np.int32))
+         
+         # The array will be dense with a single attribute "a" so each (i,j) cell can store an integer.
+         schema = tiledb.ArraySchema(ctx, domain=dom, sparse=False,
+                                     attrs=[tiledb.Attr(ctx, name="a", dtype=np.int32)])
+
+The array has a 2D domain where the coordinates can be integer values
 from 1 to 4 (inclusive) along both dimensions. For now, you can ignore
-the last argument in the dimension constructor (tile extent).
-
-.. content-tabs::
-
-   .. tab-container:: cpp
-      :title: C++
-
-      .. code-block:: c++
-
-        Domain domain(ctx);
-        domain.add_dimension(Dimension::create<int>(ctx, "rows", {{1, 4}}, 4))
-              .add_dimension(Dimension::create<int>(ctx, "cols", {{1, 4}}, 4));
+the tile extent argument used when creating the dimension objects.
 
 .. note::
 
@@ -121,29 +132,8 @@ the last argument in the dimension constructor (tile extent).
    ``[1,2], [2,4]`` means slice the first two values in the ``rows`` dimension
    domain, and values ``2,3,4`` in the ``cols`` dimension domain.
 
-Then, attach the domain to the schema, and configure a few other parameters
-(cell and tile ordering) that are explained in later tutorials:
-
-.. content-tabs::
-
-   .. tab-container:: cpp
-      :title: C++
-
-      .. code-block:: c++
-
-        schema.set_domain(domain).set_order({{TILEDB_ROW_MAJOR, TILEDB_ROW_MAJOR}});
-
-Finally, create a single attribute named ``a`` for the array that will hold a single
-integer for each cell:
-
-.. content-tabs::
-
-   .. tab-container:: cpp
-      :title: C++
-
-      .. code-block:: c++
-
-        schema.add_attribute(Attribute::create<int>(ctx, "a"));
+The array has a single attribute named ``a`` that will hold a single integer
+for each cell.
 
 All that is left to do is create the empty array on disk so that it can be written to.
 We specify the name of the array to create, and the schema to use. This command
@@ -159,6 +149,13 @@ will essentially persist the array schema we just created on disk.
         std::string array_name("quickstart_dense");
         Array::create(array_name, schema);
 
+   .. tab-container:: python
+      :title: Python
+
+      .. code-block:: python
+
+        array_name = "quickstart_dense"
+        tiledb.DenseArray.create(array_name, schema)
 
 .. note::
 
@@ -183,7 +180,18 @@ To start, prepare the data to be written:
         std::vector<int> data = {
             1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
 
-Next, open the array for writing, and create a query object:
+   .. tab-container:: python
+      :title: Python
+
+      .. code-block:: python
+
+        # Remember to 'import numpy as np'.
+        data = np.array(([1, 2, 3, 4],
+                         [5, 6, 7, 8],
+                         [9, 10, 11, 12],
+                         [13, 14, 15, 16]))
+
+Next, open the array for writing and write to the array:
 
 .. content-tabs::
 
@@ -194,35 +202,30 @@ Next, open the array for writing, and create a query object:
 
         Context ctx;
         Array array(ctx, array_name, TILEDB_WRITE);
-        Query query(ctx, array);
 
-Then, set up the query. We set the buffer for attribute ``a``, and also set the
+        // Prepare the query
+        Query query(ctx, array);
+        query.set_layout(TILEDB_ROW_MAJOR).set_buffer("a", data);
+
+        // Submit the query and close the array.
+        query.submit();
+        array.close();
+
+   .. tab-container:: python
+      :title: Python
+
+      .. code-block:: python
+
+        ctx = tiledb.Ctx()
+        with tiledb.DenseArray(ctx, array_name, mode='w') as A:
+            A[:] = data
+
+In C++ we use a ``Query`` object, set the buffer for attribute ``a``, and also set the
 layout of the cells in the buffer to row-major. Although the cell layout is
 covered thoroughly in later tutorials, here what you should know is that
 you are telling TileDB that the cell values in your buffer will be written
 in row-major order in the cells of the array (i.e., ``1`` will be stored
 in cell ``(1,1)``, ``2`` in ``(1,2)``, etc.).
-
-.. content-tabs::
-
-   .. tab-container:: cpp
-      :title: C++
-
-      .. code-block:: c++
-
-        query.set_layout(TILEDB_ROW_MAJOR).set_buffer("a", data);
-
-Finally, submit the query and close the array.
-
-.. content-tabs::
-
-   .. tab-container:: cpp
-      :title: C++
-
-      .. code-block:: c++
-
-        query.submit();
-        array.close();
 
 The array data is now stored on disk.
 The resulting array is depicted in the figure below.
@@ -240,9 +243,8 @@ The result values should be ``2 3 4 6 7 8``, reading in
 row-major order (i.e., first the three selected columns of row ``1``,
 then the three selected columns of row ``2``).
 
-Reading happens in much the same way as writing, except we must provide
-buffers sufficient to hold the data being read. First, open the array for
-reading:
+Reading happens in much the same way as writing, except in C++ we must provide
+buffers sufficient to hold the data being read:L
 
 .. content-tabs::
 
@@ -253,51 +255,67 @@ reading:
 
         Context ctx;
         Array array(ctx, array_name, TILEDB_READ);
+        const std::vector<int> subarray = {1, 2, 2, 4};
 
-Next, specify the subarray in terms of ``(min, max)`` values on each
-dimension. Also define the buffer that will hold the result, making
-sure that it has enough space (six elements here, as the result
+        // Prepare the vector that will hold the result (of size 6 elements)
+        std::vector<int> data(6);
+
+        // Prepare the query
+        Query query(ctx, array, TILEDB_READ);
+        query.set_subarray(subarray)
+          .set_layout(TILEDB_ROW_MAJOR)
+          .set_buffer("a", data);
+
+        // Submit the query and close the array.
+        query.submit();
+        array.close();
+
+   .. tab-container:: python
+      :title: Python
+
+      .. code-block:: python
+
+        ctx = tiledb.Ctx()
+        with tiledb.DenseArray(ctx, array_name, mode='r') as A:
+            # Slice only rows 1, 2 and cols 2, 3, 4.
+            data = A[1:3, 2:5]
+            print(data["a"])
+
+Note in C++ the subarray is specified terms of ``(min, max)`` values on each
+dimension; in Python we use the usual slicing syntax instead.
+
+In C++ you also must ensure the buffer that will hold the result
+has enough space (six elements here, as the result
 of the subarray will be six integers). Proper result buffer allocation
 is an important topic that is covered in detail in later tutorials.
 
-.. content-tabs::
-
-   .. tab-container:: cpp
-      :title: C++
-
-      .. code-block:: c++
-
-        const std::vector<int> subarray = {1, 2, 2, 4};
-        std::vector<int> data(6);
-
-Then, we set up and submit a query object, and close the array, similarly to writes.
-The row-major layout here means that the cells will be returned in row-major order
-**within the subarray** ``[1,2], [2,4]`` (more information on cell layouts
-is covered in later tutorials).
-
-.. content-tabs::
-
-   .. tab-container:: cpp
-      :title: C++
-
-      .. code-block:: c++
-
-        Query query(ctx, array);
-        query.set_subarray(subarray)
-             .set_layout(TILEDB_ROW_MAJOR)
-             .set_buffer("a", data);
-        query.submit();
-        array.close();
+The row-major layout for the query means that the cells will be returned
+in row-major order **within the subarray** ``[1,2], [2,4]`` (more information
+on cell layouts is covered in later tutorials).
 
 Now ``data`` holds the result cell values on attribute ``a``.
 If you compile and run the example of this tutorial as shown below, you should
 see the following output:
 
-.. code-block:: bash
+.. content-tabs::
 
-   $ g++ -std=c++11 quickstart_dense.cc -o quickstart_dense -ltiledb
-   $ ./quickstart_dense
-   2 3 4 6 7 8
+   .. tab-container:: cpp
+      :title: C++
+
+      .. code-block:: bash
+
+        $ g++ -std=c++11 quickstart_dense.cc -o quickstart_dense -ltiledb
+        $ ./quickstart_dense
+        2 3 4 6 7 8
+
+   .. tab-container:: python
+      :title: Python
+
+      .. code-block:: bash
+
+        $ python quickstart_dense.py
+        [[2 3 4]
+         [6 7 8]]
 
 
 On-disk structure
